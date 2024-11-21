@@ -1,0 +1,173 @@
+import tkinter as tk
+from tkinter import messagebox, simpledialog
+from datetime import datetime, timedelta
+
+class Tugas:
+    def __init__(self, judul, prioritas="Sedang", tanggal_jatuh_tempo=None):
+        self.judul = judul
+        self.prioritas = prioritas
+        self.tanggal_jatuh_tempo = tanggal_jatuh_tempo
+        self.selesai = False
+
+    def tandai_selesai(self):
+        self.selesai = True
+
+    def edit_tugas(self, judul_baru, prioritas_baru, tanggal_jatuh_tempo_baru):
+        self.judul = judul_baru
+        self.prioritas = prioritas_baru
+        self.tanggal_jatuh_tempo = tanggal_jatuh_tempo_baru
+
+class ManajerTugas:
+    def __init__(self):
+        self.daftar_tugas = []
+        self.tumpukan = []
+        self.antrian = []
+
+    def tambah_tugas(self, judul, prioritas="Sedang", tanggal_jatuh_tempo=None):
+        tugas = Tugas(judul, prioritas, tanggal_jatuh_tempo)
+        self.daftar_tugas.append(tugas)
+        self.tumpukan.append(tugas)
+
+    def selesaikan_tugas(self, indeks):
+        if 0 <= indeks < len(self.daftar_tugas):
+            self.daftar_tugas[indeks].tandai_selesai()
+            self.antrian.append(self.daftar_tugas[indeks])
+
+    def edit_tugas(self, indeks, judul_baru, prioritas_baru, tanggal_jatuh_tempo_baru):
+        if 0 <= indeks < len(self.daftar_tugas):
+            self.daftar_tugas[indeks].edit_tugas(judul_baru, prioritas_baru, tanggal_jatuh_tempo_baru)
+
+    def dapatkan_tugas(self):
+        return self.daftar_tugas
+
+class Aplikasi:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Manajemen Tugas")
+        self.manajer_tugas = ManajerTugas()
+
+        self.warna_gelap = {"bg": "#2E2E2E", "fg": "#FFFFFF", "button": "#4B4B4B"}
+        self.warna_terang = {"bg": "#FFFFFF", "fg": "#000000", "button": "#D3D3D3"}
+        self.is_dark_mode = False
+
+        self.frame_atas = tk.Frame(root)
+        self.frame_tengah = tk.Frame(root)
+        self.frame_bawah = tk.Frame(root)
+
+        self.entri_tugas = tk.Entry(self.frame_atas, width=50)
+        self.var_prioritas = tk.StringVar(value="Sedang")
+        self.label_prioritas = tk.Label(self.frame_atas, text="Prioritas:")
+        self.dropdown_prioritas = tk.OptionMenu(self.frame_atas, self.var_prioritas, "Tinggi", "Sedang", "Rendah")
+        self.tombol_tambah = tk.Button(self.frame_atas, text="Tambah Tugas", command=self.tambah_tugas)
+
+        self.tombol_edit = tk.Button(self.frame_tengah, text="Edit Tugas", command=self.edit_tugas)
+        self.tombol_selesai = tk.Button(self.frame_tengah, text="Selesaikan Tugas", command=self.selesaikan_tugas)
+        self.tombol_tema = tk.Button(self.frame_tengah, text="Ganti Tema", command=self.toggle_tema)
+        self.listbox_tugas = tk.Listbox(self.frame_bawah, width=70, height=15)
+
+        self.entri_tugas.grid(row=0, column=0, padx=5, pady=5)
+        self.label_prioritas.grid(row=0, column=1, padx=5)
+        self.dropdown_prioritas.grid(row=0, column=2, padx=5)
+        self.tombol_tambah.grid(row=0, column=3, padx=5)
+
+        self.tombol_edit.grid(row=0, column=0, padx=5, pady=5)
+        self.tombol_selesai.grid(row=0, column=1, padx=5, pady=5)
+        self.tombol_tema.grid(row=0, column=2, padx=5, pady=5)
+
+        self.listbox_tugas.pack(pady=10, fill="both", expand=True)
+
+        self.frame_atas.pack(fill="x", pady=5)
+        self.frame_tengah.pack(fill="x", pady=5)
+        self.frame_bawah.pack(fill="both", expand=True)
+
+        self.ganti_tema()
+        self.perbarui_daftar_tugas()
+        self.cek_tugas_terdekat()
+
+    def ganti_tema(self):
+        tema = self.warna_gelap if self.is_dark_mode else self.warna_terang
+        self.root.configure(bg=tema["bg"])
+        for frame in [self.frame_atas, self.frame_tengah, self.frame_bawah]:
+            frame.configure(bg=tema["bg"])
+        for widget in [self.entri_tugas, self.label_prioritas, self.dropdown_prioritas, self.tombol_tambah, 
+                       self.tombol_edit, self.tombol_selesai, self.tombol_tema, self.listbox_tugas]:
+            widget.configure(bg=tema.get("button", tema["bg"]), fg=tema["fg"])
+
+    def toggle_tema(self):
+        self.is_dark_mode = not self.is_dark_mode
+        self.ganti_tema()
+
+    def tambah_tugas(self):
+        judul_tugas = self.entri_tugas.get()
+        prioritas_tugas = self.var_prioritas.get()
+        tanggal_jatuh_tempo = simpledialog.askstring("Tanggal Jatuh Tempo", "Masukkan tanggal jatuh tempo (YYYY-MM-DD):")
+
+        try:
+            tanggal_jatuh_tempo = datetime.strptime(tanggal_jatuh_tempo, "%Y-%m-%d").date() if tanggal_jatuh_tempo else None
+        except ValueError:
+            messagebox.showwarning("Peringatan", "Format tanggal salah.")
+            return
+
+        if judul_tugas:
+            self.manajer_tugas.tambah_tugas(judul_tugas, prioritas_tugas, tanggal_jatuh_tempo)
+            self.perbarui_daftar_tugas()
+            self.entri_tugas.delete(0, tk.END)
+        else:
+            messagebox.showwarning("Peringatan", "Masukkan judul tugas.")
+
+    def selesaikan_tugas(self):
+        try:
+            indeks_terpilih = self.listbox_tugas.curselection()[0]
+            self.manajer_tugas.selesaikan_tugas(indeks_terpilih)
+            self.perbarui_daftar_tugas()
+        except IndexError:
+            messagebox.showwarning("Peringatan", "Pilih tugas yang ingin diselesaikan.")
+
+    def edit_tugas(self):
+        try:
+            indeks_terpilih = self.listbox_tugas.curselection()[0]
+            tugas = self.manajer_tugas.dapatkan_tugas()[indeks_terpilih]
+
+            judul_baru = simpledialog.askstring("Edit Tugas", "Masukkan judul baru:", initialvalue=tugas.judul)
+            prioritas_baru = simpledialog.askstring("Edit Prioritas", "Masukkan prioritas baru (Tinggi, Sedang, Rendah):", initialvalue=tugas.prioritas)
+
+            if prioritas_baru not in ["Tinggi", "Sedang", "Rendah"]:
+                messagebox.showwarning("Peringatan", "Prioritas harus salah satu dari 'Tinggi', 'Sedang', atau 'Rendah'.")
+                return
+
+            tanggal_jatuh_tempo_baru = simpledialog.askstring("Edit Tanggal Jatuh Tempo", "Masukkan tanggal jatuh tempo baru (YYYY-MM-DD):", initialvalue=tugas.tanggal_jatuh_tempo.strftime("%Y-%m-%d") if tugas.tanggal_jatuh_tempo else "")
+
+            try:
+                tanggal_jatuh_tempo_baru = datetime.strptime(tanggal_jatuh_tempo_baru, "%Y-%m-%d").date() if tanggal_jatuh_tempo_baru else None
+            except ValueError:
+                messagebox.showwarning("Peringatan", "Format tanggal salah.")
+                return
+
+            if judul_baru and prioritas_baru:
+                self.manajer_tugas.edit_tugas(indeks_terpilih, judul_baru, prioritas_baru, tanggal_jatuh_tempo_baru)
+                self.perbarui_daftar_tugas()
+        except IndexError:
+            messagebox.showwarning("Peringatan", "Pilih tugas yang ingin diedit.")
+
+    def perbarui_daftar_tugas(self):
+        self.listbox_tugas.delete(0, tk.END)
+        for tugas in self.manajer_tugas.dapatkan_tugas():
+            status = "✓" if tugas.selesai else "✗"
+            tanggal_jatuh_tempo = tugas.tanggal_jatuh_tempo.strftime("%Y-%m-%d") if tugas.tanggal_jatuh_tempo else "Tidak ada"
+            self.listbox_tugas.insert(tk.END, f"{status} {tugas.judul} - Prioritas: {tugas.prioritas} - Jatuh Tempo: {tanggal_jatuh_tempo}")
+
+    def cek_tugas_terdekat(self):
+        hari_ini = datetime.now().date()
+        hari_peringatan = timedelta(days=1)
+
+        for tugas in self.manajer_tugas.dapatkan_tugas():
+            if tugas.tanggal_jatuh_tempo and not tugas.selesai:
+                if 0 <= (tugas.tanggal_jatuh_tempo - hari_ini).days <= hari_peringatan.days:
+                    messagebox.showinfo("Peringatan Jatuh Tempo", f"Tugas '{tugas.judul}' mendekati jatuh tempo pada {tugas.tanggal_jatuh_tempo}")
+
+        self.root.after(10000, self.cek_tugas_terdekat)
+
+if __name__ == "__main__":
+    root = tk.Tk()
+    aplikasi = Aplikasi(root)
+    root.mainloop()
